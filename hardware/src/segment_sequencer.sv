@@ -78,7 +78,7 @@ module segment_sequencer import ara_pkg::*; import rvv_pkg::*; #(
                              | ((state_q != IDLE) & segment_cnt_en & (segment_cnt_q == nf_q));
 
     // Track the number of segments
-    logic vstart_cnt_en;
+    logic vstart_cnt_en, vstart_cnt_clear;
     logic [$bits(ara_req_i.vstart)-1:0] vstart_cnt_q;
 
     counter #(
@@ -87,7 +87,7 @@ module segment_sequencer import ara_pkg::*; import rvv_pkg::*; #(
     ) i_vstart_cnt (
       .clk_i,
       .rst_ni,
-      .clear_i( /* Unused */ ),
+      .clear_i( vstart_cnt_clear ),
       .en_i(vstart_cnt_en),
       .load_i(new_seg_mem_op),
       .down_i(1'b0),
@@ -97,6 +97,7 @@ module segment_sequencer import ara_pkg::*; import rvv_pkg::*; #(
     );
     // Change destination vector index when all the fields of the segment have been processed
     assign vstart_cnt_en = segment_cnt_en & (segment_cnt_q == nf_q);
+    assign vstart_cnt_clear = (state_q == SEGMENT_MICRO_OPS_END);
 
     // Next vstart count
     assign next_vstart_cnt = vstart_cnt_q + 1;
@@ -140,7 +141,7 @@ module segment_sequencer import ara_pkg::*; import rvv_pkg::*; #(
             // Set-up sequencing
             new_seg_mem_op = 1'b1;
             // Set up the first micro operation
-            ara_req_o.vl = next_vstart_cnt;
+            ara_req_o.vl = 1;
             // Pass to the next field if the previous micro op finished
             segment_cnt_en = 1'b1;
             // Start sequencing
@@ -151,11 +152,14 @@ module segment_sequencer import ara_pkg::*; import rvv_pkg::*; #(
           // Manipulate the memory micro request in advance
           ara_req_o.vl        = next_vstart_cnt;
           ara_req_o.vstart    = vstart_cnt_q;
-          ara_req_o.scalar_op = ara_req_i.scalar_op + segment_cnt_q; // todo: relax timing here
           ara_req_o.vs1       = ara_req_i.vs1 + segment_cnt_q;
           ara_req_o.vd        = ara_req_i.vd  + segment_cnt_q;
           // If segment unit-stride, the segments are actually separated by (#field << eew) bytes
           if (ara_req_i.op == VLE || ara_req_i.op == VSE) begin
+            // todo: relax timing here
+            ara_req_o.scalar_op = is_vload_q
+                                ? ara_req_i.scalar_op + (segment_cnt_q << ara_req_i.vtype.vsew)
+                                : ara_req_i.scalar_op + (segment_cnt_q << ara_req_i.eew_vs1);
             ara_req_o.op     = is_vload_q
                              ? VLSE
                              : VSSE;
