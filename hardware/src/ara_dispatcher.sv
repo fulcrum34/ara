@@ -260,7 +260,9 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
   // The handshake signals are just passed-through if the insn is non-segment
   ara_resp_t ara_resp;
   segment_sequencer #(
-    .SegSupport(SegSupport)
+    .SegSupport(SegSupport),
+    .ara_req_t (ara_req_t ),
+    .ara_resp_t(ara_resp_t)
   ) i_segment_sequencer (
     .clk_i(clk_i),
     .rst_ni(rst_ni),
