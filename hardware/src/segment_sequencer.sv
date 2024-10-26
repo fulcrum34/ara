@@ -133,6 +133,7 @@ module segment_sequencer import ara_pkg::*; import rvv_pkg::*; #(
           store_complete_o = store_complete_i;
           // Be ready to sample the next nf
           nf_d = ara_req_i.nf;
+          is_vload_d = is_vload_i;
           // Send a first micro operation upon valid segment mem op
           if (is_segment_mem_op_i && !illegal_insn_i) begin
             // If we are here, the backend is able to accept the request
@@ -143,15 +144,25 @@ module segment_sequencer import ara_pkg::*; import rvv_pkg::*; #(
             // Pass to the next field if the previous micro op finished
             segment_cnt_en = 1'b1;
             // Start sequencing
-            state_d = SEGMENT_MICRO_OPS;
+            state_d    = SEGMENT_MICRO_OPS;
           end
         end
         SEGMENT_MICRO_OPS: begin
           // Manipulate the memory micro request in advance
-          ara_req_o.vl     = next_vstart_cnt;
-          ara_req_o.vstart = vstart_cnt_q;
-          ara_req_o.vs1    = ara_req_i.vs1 + segment_cnt_q;
-          ara_req_o.vd     = ara_req_i.vd  + segment_cnt_q;
+          ara_req_o.vl        = next_vstart_cnt;
+          ara_req_o.vstart    = vstart_cnt_q;
+          ara_req_o.scalar_op = ara_req_i.scalar_op + segment_cnt_q; // todo: relax timing here
+          ara_req_o.vs1       = ara_req_i.vs1 + segment_cnt_q;
+          ara_req_o.vd        = ara_req_i.vd  + segment_cnt_q;
+          // If segment unit-stride, the segments are actually separated by (#field << eew) bytes
+          if (ara_req_i.op == VLE || ara_req_i.op == VSE) begin
+            ara_req_o.op     = is_vload_q
+                             ? VLSE
+                             : VSSE;
+            ara_req_o.stride = is_vload_q
+                             ? (ara_req_i.nf + 1) << ara_req_i.vtype.vsew
+                             : (ara_req_i.nf + 1) << ara_req_i.eew_vs1;
+          end
 
           // Don't answer CVA6 yet
           ara_resp_valid_o = 1'b0;
