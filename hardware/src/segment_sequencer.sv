@@ -154,15 +154,15 @@ module segment_sequencer import ara_pkg::*; import rvv_pkg::*; #(
           ara_req_o.vstart    = vstart_cnt_q;
           ara_req_o.vs1       = ara_req_i.vs1 + segment_cnt_q;
           ara_req_o.vd        = ara_req_i.vd  + segment_cnt_q;
+
+          ara_req_o.scalar_op = is_vload_q           // todo: relax timing here
+                              ? ara_req_i.scalar_op + (segment_cnt_q << ara_req_i.vtype.vsew)
+                              : ara_req_i.scalar_op + (segment_cnt_q << ara_req_i.eew_vs1);
           // If segment unit-stride, the segments are actually separated by (#field << eew) bytes
           if (ara_req_i.op == VLE || ara_req_i.op == VSE) begin
-            // todo: relax timing here
-            ara_req_o.scalar_op = is_vload_q
-                                ? ara_req_i.scalar_op + (segment_cnt_q << ara_req_i.vtype.vsew)
-                                : ara_req_i.scalar_op + (segment_cnt_q << ara_req_i.eew_vs1);
-            ara_req_o.op     = is_vload_q
-                             ? VLSE
-                             : VSSE;
+            ara_req_o.op = is_vload_q
+                         ? VLSE
+                         : VSSE;
             ara_req_o.stride = is_vload_q
                              ? (ara_req_i.nf + 1) << ara_req_i.vtype.vsew
                              : (ara_req_i.nf + 1) << ara_req_i.eew_vs1;
