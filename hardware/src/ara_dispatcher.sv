@@ -116,7 +116,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
   /////////////////////////
 
   ara_req_t ara_req, ara_req_d;
-  logic     ara_req_valid_d;
+  logic     ara_req_valid, ara_req_valid_d;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
@@ -259,6 +259,8 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
 
   // The handshake signals are just passed-through if the insn is non-segment
   ara_resp_t ara_resp;
+  logic ara_resp_valid;
+
   segment_sequencer #(
     .SegSupport(SegSupport),
     .ara_req_t (ara_req_t ),
@@ -277,6 +279,8 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
     .store_complete_o(store_complete),
     .ara_req_i(ara_req),
     .ara_req_o(ara_req_d),
+    .ara_req_valid_i(ara_req_valid),
+    .ara_req_valid_o(ara_req_valid_d),
     .ara_req_ready_i(ara_req_ready_i),
     .ara_resp_i(ara_resp_i),
     .ara_resp_o(ara_resp),
@@ -360,7 +364,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
       cvt_resize   : CVT_SAME,
       default      : '0
     };
-    ara_req_valid_d = 1'b0;
+    ara_req_valid = 1'b0;
 
     is_config            = 1'b0;
     ignore_zero_vl_check = 1'b0;
@@ -401,7 +405,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
         // These generate a reshuffle request to Ara's backend
         // When LMUL > 1, not all the regs that compose a large
         // register should always be reshuffled
-        ara_req_valid_d         = ~rs_mask_request_q;
+        ara_req_valid         = ~rs_mask_request_q;
         ara_req.use_scalar_op = 1'b1;
         ara_req.vs2           = vs_buffer_q;
         ara_req.eew_vs2       = eew_old_buffer_q;
@@ -602,7 +606,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
                 ara_req.vd      = insn.varith_type.rd;
                 ara_req.use_vd  = 1'b1;
                 ara_req.vm      = insn.varith_type.vm;
-                ara_req_valid_d   = 1'b1;
+                ara_req_valid   = 1'b1;
 
                 // Decode based on the func6 field
                 unique case (insn.varith_type.func6)
@@ -818,7 +822,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
                 ara_req.use_vd        = 1'b1;
                 ara_req.vm            = insn.varith_type.vm;
                 ara_req.is_stride_np2 = is_stride_np2;
-                ara_req_valid_d         = 1'b1;
+                ara_req_valid         = 1'b1;
 
                 // Decode based on the func6 field
                 unique case (insn.varith_type.func6)
@@ -1031,7 +1035,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
                 ara_req.use_vd        = 1'b1;
                 ara_req.vm            = insn.varith_type.vm;
                 ara_req.is_stride_np2 = is_stride_np2;
-                ara_req_valid_d         = 1'b1;
+                ara_req_valid         = 1'b1;
 
                 // Decode based on the func6 field
                 unique case (insn.varith_type.func6)
@@ -1237,7 +1241,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
                 ara_req.vd      = insn.varith_type.rd;
                 ara_req.use_vd  = 1'b1;
                 ara_req.vm      = insn.varith_type.vm;
-                ara_req_valid_d   = 1'b1;
+                ara_req_valid   = 1'b1;
 
                 // Assume an effective EMUL = LMUL1 by default (for the mask operations)
                 ara_req.emul = LMUL_1;
@@ -1333,7 +1337,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
                       acc_resp_o.resp_valid = 1'b1;
                       acc_resp_o.result     = ara_resp.resp;
                       acc_resp_o.exception  = ara_resp.exception;
-                      ara_req_valid_d       = 1'b0;
+                      ara_req_valid       = 1'b0;
                     end
                   end
                   6'b010100: begin
@@ -1685,7 +1689,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
                 ara_req.use_vd        = 1'b1;
                 ara_req.vm            = insn.varith_type.vm;
                 ara_req.is_stride_np2 = is_stride_np2;
-                ara_req_valid_d         = 1'b1;
+                ara_req_valid         = 1'b1;
 
                 // Decode based on the func6 field
                 unique case (insn.varith_type.func6)
@@ -1922,7 +1926,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
                   ara_req.use_vd  = 1'b1;
                   ara_req.vm      = insn.varith_type.vm;
                   ara_req.fp_rm   = acc_req_i.frm;
-                  ara_req_valid_d   = 1'b1;
+                  ara_req_valid   = 1'b1;
 
                   // Decode based on the func6 field
                   unique case (insn.varith_type.func6)
@@ -2007,7 +2011,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
                         acc_resp_o.resp_valid = 1'b1;
                         acc_resp_o.result     = vfmvfs_result;
                         acc_resp_o.exception  = ara_resp.exception;
-                        ara_req_valid_d       = 1'b0;
+                        ara_req_valid       = 1'b0;
                       end
                     end
                     6'b011000: ara_req.op = ara_pkg::VMFEQ;
@@ -2344,7 +2348,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
                   ara_req.vm            = insn.varith_type.vm;
                   ara_req.is_stride_np2 = is_stride_np2;
                   ara_req.fp_rm         = acc_req_i.frm;
-                  ara_req_valid_d         = 1'b1;
+                  ara_req_valid         = 1'b1;
 
                   // Decode based on the func6 field
                   unique case (insn.varith_type.func6)
@@ -2593,7 +2597,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
             ara_req.vm        = insn.vmem_type.vm;
             ara_req.scalar_op = acc_req_i.rs1;
             ara_req.nf        = insn.vmem_type.nf;
-            ara_req_valid_d     = 1'b1;
+            ara_req_valid     = 1'b1;
 
             // Decode the element width
             // Indexed memory operations follow a different rule
@@ -2634,7 +2638,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
                 acc_resp_o.req_ready  = 1'b1;
                 acc_resp_o.resp_valid = 1'b1;
                 illegal_insn          = 1'b1;
-                ara_req_valid_d       = 1'b0;
+                ara_req_valid       = 1'b0;
               end
             endcase
 
@@ -2749,7 +2753,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
               ignore_zero_vl_check = 1'b1;
               // The LMUL value is kept in the instruction itself
               illegal_insn_load     = 1'b0;
-              ara_req_valid_d  = 1'b1;
+              ara_req_valid  = 1'b1;
 
               // Maximum vector length. VLMAX = nf * VLEN / EW8.
               ara_req.vtype.vsew = EW8;
@@ -2782,7 +2786,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
               acc_resp_o.req_ready  = 1'b1;
               acc_resp_o.resp_valid = 1'b1;
               acc_resp_o.exception  = ara_resp.exception;
-              ara_req_valid_d       = 1'b0;
+              ara_req_valid       = 1'b0;
               // In case of exception, modify vstart
               if ( ara_resp.exception.valid ) begin
                 csr_vstart_d = ara_resp.exception_vstart;
@@ -2823,7 +2827,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
             ara_req.vm        = insn.vmem_type.vm;
             ara_req.scalar_op = acc_req_i.rs1;
             ara_req.nf        = insn.vmem_type.nf;
-            ara_req_valid_d     = 1'b1;
+            ara_req_valid     = 1'b1;
 
             // Decode the element width
             // Indexed memory operations follow a different rule
@@ -3000,7 +3004,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
 
               acc_resp_o.req_ready  = 1'b0;
               acc_resp_o.resp_valid = 1'b0;
-              ara_req_valid_d  = 1'b1;
+              ara_req_valid  = 1'b1;
             end
 
             // Wait until the back-end answers to acknowledge those instructions
@@ -3008,7 +3012,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
               acc_resp_o.req_ready  = 1'b1;
               acc_resp_o.resp_valid = 1'b1;
               acc_resp_o.exception  = ara_resp.exception;
-              ara_req_valid_d       = 1'b0;
+              ara_req_valid       = 1'b0;
               // In case of exception, modify vstart and wait until the previous
               // operations are over
               if ( ara_resp.exception.valid ) begin
@@ -3273,7 +3277,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
 
       // Raise an illegal instruction exception
       if ( illegal_insn || illegal_insn_load || illegal_insn_store ) begin
-        ara_req_valid_d            = 1'b0;
+        ara_req_valid            = 1'b0;
         acc_resp_o.req_ready       = 1'b1;
         acc_resp_o.resp_valid      = 1'b1;
         acc_resp_o.exception.valid = 1'b1;
@@ -3332,7 +3336,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
         // Stall the interface, and inject a reshuffling instruction
         acc_resp_o.req_ready  = 1'b0;
         acc_resp_o.resp_valid = 1'b0;
-        ara_req_valid_d  = 1'b0;
+        ara_req_valid  = 1'b0;
 
         // Initialize the reshuffle counter limit to handle LMUL > 1
         unique case (ara_req.emul)
@@ -3398,7 +3402,7 @@ module ara_dispatcher import ara_pkg::*; import rvv_pkg::*; #(
       // delay the zero_vl acknowledge by 1 cycle
       acc_resp_o.req_ready  = ~((is_vload & load_complete_q) | (is_vstore & store_complete_q));
       acc_resp_o.resp_valid = ~((is_vload & load_complete_q) | (is_vstore & store_complete_q));
-      ara_req_valid_d  = 1'b0;
+      ara_req_valid  = 1'b0;
       load_zero_vl     = is_vload;
       store_zero_vl    = is_vstore;
     end
